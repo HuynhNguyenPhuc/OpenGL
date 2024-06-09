@@ -5,6 +5,7 @@ import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -21,6 +22,7 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
     private final float[] pointB;
     private final float[] pointC;
     private final float[] pointP;
+    private final float[] center = new float[3];
     private final float[] normalA;
     private final float[] normalB;
     private final float[] normalC;
@@ -29,8 +31,9 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
 
     private final FloatBuffer mVertexBuffer;
     private FloatBuffer mRayBuffer;
+    private FloatBuffer mPointBuffer;
 
-    private final int[] mVBOHandles = new int[2];
+    private final int[] mVBOHandles = new int[3];
 
     private int mProgramHandle;
 
@@ -70,11 +73,12 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
     }
 
     private void setupRayBuffer() {
-        PlaneMeshHelper helper = new PlaneMeshHelper(new float[]{0.0f, 0.0f, 0.0f}, new float[]{0.0f, 0.0f, 0.0f}, pointA, pointB, pointC);
+        PlaneMeshHelper helper = new PlaneMeshHelper(new float[]{0.0f, 0.0f, 0.0f}, new float[]{1.0f, 1.0f, 1.0f}, pointA, pointB, pointC);
         float[] bCoordinates = helper.getBarycentricCoordinates(pointP);
         float[] normalP = new float[3];
 
         for (int i = 0; i < 3; i++) {
+            center[i] = (pointA[i] + pointB[i] + pointC[i]) / 3;
             normalP[i] = normalA[i] * bCoordinates[0] + normalB[i] * bCoordinates[1] + normalC[i] * bCoordinates[2];
         }
 
@@ -94,6 +98,12 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
                 .asFloatBuffer();
         mRayBuffer.put(rayVertices);
         mRayBuffer.position(0);
+
+        mPointBuffer = ByteBuffer.allocateDirect(3 * mBytesPerFloat)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        mPointBuffer.put(pointP);
+        mPointBuffer.position(0);
     }
 
     private String getVertexShader() {
@@ -110,7 +120,6 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
                         "}\n";
     }
 
-
     private String getFragmentShader() {
         return
                 "precision mediump float;\n" +
@@ -126,27 +135,31 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
 
-        final float eyeX = 0.0f;
-        final float eyeY = 0.0f;
-        final float eyeZ = -5.0f;
-
-        final float lookX = 0.0f;
-        final float lookY = 0.0f;
-        final float lookZ = 5.0f;
+        final float eyeX = this.center[0];
+        final float eyeY = this.center[1];
+        final float eyeZ = this.center[2] - 5.0f;
+        final float lookX = this.center[0];
+        final float lookY = this.center[1];
+        final float lookZ = this.center[2] + 5.0f;
 
         final float upX = 0.0f;
         final float upY = 1.0f;
         final float upZ = 0.0f;
+
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
         setupProgram();
 
-        GLES30.glGenBuffers(2, mVBOHandles, 0);
+        GLES30.glGenBuffers(3, mVBOHandles, 0);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * mBytesPerFloat, mVertexBuffer, GLES30.GL_DYNAMIC_DRAW);
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[1]);
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mRayBuffer.capacity() * mBytesPerFloat, mRayBuffer, GLES30.GL_DYNAMIC_DRAW);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mPointBuffer.capacity() * mBytesPerFloat, mPointBuffer, GLES30.GL_DYNAMIC_DRAW);
+
     }
 
     private void setupProgram() {
@@ -189,23 +202,21 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
         final float far = 10.0f;
 
         Matrix.frustumM(mProjectionMatrix, 0, left, right, bottom, top, near, far);
+
+        GLES30.glUniformMatrix4fv(mProjectionMatrixHandle, 1, false, mProjectionMatrix, 0);
     }
 
     @Override
     public void onDrawFrame(GL10 glUnused) {
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT | GLES30.GL_COLOR_BUFFER_BIT);
 
-        // long time = SystemClock.uptimeMillis() % 10000L;
-        // float angleInDegrees = (360.0f / 10000.0f) * ((int) time);
-
         Matrix.setIdentityM(mModelMatrix, 0);
-        // Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);
         mColor = new float[]{0.5f, 0.5f, 0.0f, 1.0f};
 
         GLES30.glUniformMatrix4fv(mModelMatrixHandle, 1, false, mModelMatrix, 0);
         GLES30.glUniformMatrix4fv(mViewMatrixHandle, 1, false, mViewMatrix, 0);
-        GLES30.glUniformMatrix4fv(mProjectionMatrixHandle, 1, false, mProjectionMatrix, 0);
 
+        drawPoints();
         drawVertices();
         drawRay();
     }
@@ -217,6 +228,7 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
         GLES30.glEnableVertexAttribArray(mPositionHandle);
 
         GLES30.glUniform4f(mColorHandle, mColor[0], mColor[1], mColor[2], mColor[3]);
+        GLES30.glUniform1f(mPointSizeHandle, 10.0f);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3);
 
         GLES30.glDisableVertexAttribArray(mPositionHandle);
@@ -230,6 +242,21 @@ public class BarycentricRender implements GLSurfaceView.Renderer {
 
         GLES30.glUniform4f(mColorHandle, 1.0f, 0.0f, 0.0f, 1.0f);
         GLES30.glDrawArrays(GLES30.GL_LINES, 0, 8);
+
+        GLES30.glDisableVertexAttribArray(mPositionHandle);
+    }
+
+    private void drawPoints() {
+        GLES30.glUseProgram(mProgramHandle);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
+        GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
+        GLES30.glEnableVertexAttribArray(mPositionHandle);
+
+        GLES30.glUniform1f(mPointSizeHandle, 10.0f);
+        GLES30.glUniform4f(mColorHandle, 0.0f, 1.0f, 0.0f, 1.0f);
+
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, 1);
 
         GLES30.glDisableVertexAttribArray(mPositionHandle);
     }

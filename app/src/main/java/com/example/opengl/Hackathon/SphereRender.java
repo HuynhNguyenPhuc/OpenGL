@@ -3,7 +3,6 @@ package com.example.opengl.Hackathon;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
-import android.os.SystemClock;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -20,8 +19,8 @@ public class SphereRender implements GLSurfaceView.Renderer {
     private final float[] mProjectionMatrix = new float[16];
     private final float[] center;
     private final float radius;
-    private float[] rayPosition;
-    private float[] rayDirection;
+    private final float[] rayPosition;
+    private final float[] rayDirection;
 
     private float[] mColor = new float[4];
 
@@ -45,7 +44,7 @@ public class SphereRender implements GLSurfaceView.Renderer {
     private final int mBytesPerFloat = 4;
     private final int mPositionDataSize = 3;
 
-    public SphereRender(float[] rayPosition, float[]rayDirection, float[]center, float radius) {
+    public SphereRender(float[] rayPosition, float[] rayDirection, float[] center, float radius) {
         this.center = center;
         this.radius = radius;
         this.rayPosition = rayPosition;
@@ -67,7 +66,7 @@ public class SphereRender implements GLSurfaceView.Renderer {
     private void setupRayBuffer() {
         float[] rayVertices = {
                 rayPosition[0], rayPosition[1], rayPosition[2],
-                rayPosition[0] + rayDirection[0] * 10, rayPosition[1] + rayDirection[1] * 10, rayPosition[2] + rayDirection[2] * 10
+                rayPosition[0] + rayDirection[0] * 1000, rayPosition[1] + rayDirection[1] * 1000, rayPosition[2] + rayDirection[2] * 1000
         };
 
         mRayBuffer = ByteBuffer.allocateDirect(rayVertices.length * mBytesPerFloat)
@@ -85,7 +84,7 @@ public class SphereRender implements GLSurfaceView.Renderer {
             pointVertices[i * 3] = intersectionPoints.get(i)[0];
             pointVertices[i * 3 + 1] = intersectionPoints.get(i)[1];
             pointVertices[i * 3 + 2] = intersectionPoints.get(i)[2];
-            Log.d("Intersection", "Point: " + pointVertices[i * 3] + ", " + pointVertices[i * 3 + 1] + ", " + pointVertices[i * 3 + 2]);
+            Log.d("SphereRender", "point: " + pointVertices[i * 3] + ", " + pointVertices[i * 3 + 1] + ", " + pointVertices[i * 3 + 2]);
         }
 
         mPointBuffer = ByteBuffer.allocateDirect(pointVertices.length * mBytesPerFloat)
@@ -125,13 +124,13 @@ public class SphereRender implements GLSurfaceView.Renderer {
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
 
-        final float eyeX = 0.0f;
-        final float eyeY = 1.0f;
-        final float eyeZ = -4.0f;
+        final float eyeX = center[0];
+        final float eyeY = center[1];
+        final float eyeZ = -3.0f * radius + center[2];
 
-        final float lookX = 0.0f;
-        final float lookY = 0.0f;
-        final float lookZ = 4.0f;
+        final float lookX = center[0];
+        final float lookY = center[1];
+        final float lookZ = 3.0f * radius + center[2];
 
         final float upX = 0.0f;
         final float upY = 1.0f;
@@ -141,6 +140,7 @@ public class SphereRender implements GLSurfaceView.Renderer {
         setupProgram();
 
         GLES30.glGenBuffers(3, mVBOHandles, 0);
+
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * mBytesPerFloat, mVertexBuffer, GLES30.GL_DYNAMIC_DRAW);
 
@@ -188,20 +188,16 @@ public class SphereRender implements GLSurfaceView.Renderer {
         final float bottom = -1.0f;
         final float top = 1.0f;
         final float near = 1.0f;
-        final float far = 10.0f;
+        final float far = 6.0f * radius;
 
         Matrix.frustumM(mProjectionMatrix, 0, left, right, bottom, top, near, far);
     }
 
     @Override
     public void onDrawFrame(GL10 glUnused) {
-        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT | GLES30.GL_COLOR_BUFFER_BIT);
-
-        // long time = SystemClock.uptimeMillis() % 10000L;
-        // float angleInDegrees = (360.0f / 10000.0f) * ((int) time);
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT | GLES30.GL_DEPTH_BUFFER_BIT);
 
         Matrix.setIdentityM(mModelMatrix, 0);
-        // Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);
         mColor = new float[]{0.0f, 0.0f, 0.0f, 0.0f};
 
         GLES30.glUniformMatrix4fv(mModelMatrixHandle, 1, false, mModelMatrix, 0);
@@ -227,13 +223,16 @@ public class SphereRender implements GLSurfaceView.Renderer {
 
     private void drawRay() {
         GLES30.glUseProgram(mProgramHandle);
-
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[1]);
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
 
         GLES30.glUniform4f(mColorHandle, 1.0f, 0.0f, 0.0f, 1.0f);
         GLES30.glDrawArrays(GLES30.GL_LINES, 0, 2);
+
+        GLES30.glUniform1f(mPointSizeHandle, 10.0f);
+        GLES30.glUniform4f(mColorHandle, 0.0f, 0.0f, 1.0f, 1.0f);
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, 1);
 
         GLES30.glDisableVertexAttribArray(mPositionHandle);
     }
@@ -248,7 +247,7 @@ public class SphereRender implements GLSurfaceView.Renderer {
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
 
-        GLES30.glUniform1f(mPointSizeHandle, 20.0f);
+        GLES30.glUniform1f(mPointSizeHandle, 10.0f);
         GLES30.glUniform4f(mColorHandle, 1.0f, 1.0f, 1.0f, 1.0f);
 
         GLES30.glDrawArrays(GLES30.GL_POINTS, 0, mPointBuffer.capacity() / mPositionDataSize);

@@ -4,6 +4,7 @@ import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -21,6 +22,8 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
     private final float[] pointA;
     private final float[] pointB;
     private final float[] pointC;
+    private final float[] center = new float[3];
+    private boolean isInsideTriangle;
 
     private final float[] rayPosition;
     private final float[] rayDirection;
@@ -53,11 +56,21 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
         this.rayPosition = rayPosition;
         this.rayDirection = rayDirection;
 
+        Log.d("PointA", pointA[0] + " " + pointA[1] + " " + pointA[2]);
+        Log.d("PointB", pointB[0] + " " + pointB[1] + " " + pointB[2]);
+        Log.d("PointC", pointC[0] + " " + pointC[1] + " " + pointC[2]);
+        Log.d("RayPosition", rayPosition[0] + " " + rayPosition[1] + " " + rayPosition[2]);
+        Log.d("RayDirection", rayDirection[0] + " " + rayDirection[1] + " " + rayDirection[2]);
+
         float[] vertexAttributeArray = new float[]{
                 pointA[0], pointA[1], pointA[2],
                 pointB[0], pointB[1], pointB[2],
                 pointC[0], pointC[1], pointC[2]
         };
+
+        for (int i = 0; i < 3; i++) {
+            center[i] = (pointA[i] + pointB[i] + pointC[i]) / 3.0f;
+        }
 
         mVertexBuffer = ByteBuffer.allocateDirect(vertexAttributeArray.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder())
@@ -72,7 +85,7 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
     private void setupRayBuffer() {
         float[] rayVertices = {
                 rayPosition[0], rayPosition[1], rayPosition[2],
-                rayPosition[0] + rayDirection[0] * 10, rayPosition[1] + rayDirection[1] * 10, rayPosition[2] + rayDirection[2] * 10
+                rayPosition[0] + rayDirection[0] * 1000, rayPosition[1] + rayDirection[1] * 1000, rayPosition[2] + rayDirection[2] * 1000
         };
 
         mRayBuffer = ByteBuffer.allocateDirect(rayVertices.length * mBytesPerFloat)
@@ -91,6 +104,11 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
                     .asFloatBuffer();
             return;
         }
+
+        isInsideTriangle = this.helper.isInsideTriangle(intersectionPoints);
+
+        Log.d("IntersectionPoints", intersectionPoints[0] + " " + intersectionPoints[1] + " " + intersectionPoints[2]);
+        Log.d("IsInsideTriangle", isInsideTriangle + "");
 
         mPointBuffer = ByteBuffer.allocateDirect(intersectionPoints.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder())
@@ -129,17 +147,18 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
         GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
 
-        final float eyeX = 0.0f;
-        final float eyeY = 0.0f;
-        final float eyeZ = -5.0f;
+        final float eyeX = this.center[0];
+        final float eyeY = this.center[1];
+        final float eyeZ = this.center[2] - 5.0f;
 
-        final float lookX = 0.0f;
-        final float lookY = 0.0f;
-        final float lookZ = 5.0f;
+        final float lookX = this.center[0];
+        final float lookY = this.center[1];
+        final float lookZ = this.center[2] + 5.0f;
 
         final float upX = 0.0f;
         final float upY = 1.0f;
         final float upZ = 0.0f;
+
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
         setupProgram();
@@ -201,20 +220,16 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
     public void onDrawFrame(GL10 glUnused) {
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT | GLES30.GL_COLOR_BUFFER_BIT);
 
-        // long time = SystemClock.uptimeMillis() % 10000L;
-        // float angleInDegrees = (360.0f / 10000.0f) * ((int) time);
-
         Matrix.setIdentityM(mModelMatrix, 0);
-        // Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);
         mColor = new float[]{0.5f, 0.5f, 0.0f, 1.0f};
 
         GLES30.glUniformMatrix4fv(mModelMatrixHandle, 1, false, mModelMatrix, 0);
         GLES30.glUniformMatrix4fv(mViewMatrixHandle, 1, false, mViewMatrix, 0);
         GLES30.glUniformMatrix4fv(mProjectionMatrixHandle, 1, false, mProjectionMatrix, 0);
 
+        drawIntersectionPoints();
         drawVertices();
         drawRay();
-        drawIntersectionPoints();
     }
 
     private void drawVertices() {
@@ -235,8 +250,12 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
 
-        GLES30.glUniform4f(mColorHandle, 1.0f, 0.0f, 0.0f, 1.0f);
+        GLES30.glUniform4f(mColorHandle, 1.0f, 1.0f, 0.0f, 1.0f);
         GLES30.glDrawArrays(GLES30.GL_LINES, 0, 2);
+
+        GLES30.glUniform1f(mPointSizeHandle, 10.0f);
+        GLES30.glUniform4f(mColorHandle, 0.0f, 0.0f, 1.0f, 1.0f);
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, 1);
 
         GLES30.glDisableVertexAttribArray(mPositionHandle);
     }
@@ -253,15 +272,13 @@ public class SurfaceRender implements GLSurfaceView.Renderer {
 
         GLES30.glUniform1f(mPointSizeHandle, 10.0f);
 
-        float[] p = new float[]{mPointBuffer.get(0), mPointBuffer.get(1), mPointBuffer.get(2)};
-        if (this.helper.isInsideTriangle(p)) {
+        if (isInsideTriangle) {
+            GLES30.glUniform4f(mColorHandle, 0.0f, 1.0f, 0.0f, 1.0f);
+        } else {
             GLES30.glUniform4f(mColorHandle, 1.0f, 0.0f, 0.0f, 1.0f);
         }
-        else{
-            GLES30.glUniform4f(mColorHandle, 0.0f, 1.0f, 0.0f, 1.0f);
-        }
 
-        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, mPointBuffer.capacity() / mPositionDataSize);
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, 1);
 
         GLES30.glDisableVertexAttribArray(mPositionHandle);
     }
