@@ -1,4 +1,4 @@
-package com.example.opengl.MeshRender;
+package com.example.opengl.Fundamentals;
 
 import android.content.Context;
 

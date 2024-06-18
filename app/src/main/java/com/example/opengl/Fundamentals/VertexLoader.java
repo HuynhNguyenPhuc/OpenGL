@@ -1,7 +1,6 @@
-package com.example.opengl.MeshRender;
+package com.example.opengl.Fundamentals;
 
 import android.content.Context;
-import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
