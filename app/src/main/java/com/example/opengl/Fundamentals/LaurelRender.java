@@ -231,36 +231,25 @@ public class LaurelRender implements GLSurfaceView.Renderer {
                 GLES30.GL_ARRAY_BUFFER, 0, numInstances * 16 * mBytesPerFloat,
                 GLES30.GL_MAP_WRITE_BIT | GLES30.GL_MAP_INVALIDATE_BUFFER_BIT);
 
-        if (mappedByteBuffer != null) {
-            mappedByteBuffer.order(ByteOrder.nativeOrder());
-            FloatBuffer mappedFloatBuffer = mappedByteBuffer.asFloatBuffer();
-            mappedFloatBuffer.put(mModelMatrix);
-            GLES30.glUnmapBuffer(GLES30.GL_ARRAY_BUFFER);
-        }
-        else {
-            Log.e("Buffer", "Error mapping buffer range");
-        }
+        mappedByteBuffer.order(ByteOrder.nativeOrder());
+        FloatBuffer mappedFloatBuffer = mappedByteBuffer.asFloatBuffer();
+        mappedFloatBuffer.put(mModelMatrix);
+        GLES30.glUnmapBuffer(GLES30.GL_ARRAY_BUFFER);
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
 
-        drawVertices(mVertexBuffer);
+        drawVertices();
     }
 
-    private void drawVertices(final FloatBuffer vertexBuffer) {
-        //vertexBuffer.position(0);
-        // GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, vertexBuffer);
+    private void drawVertices() {
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
 
-        // vertexBuffer.position(mPositionDataSize);
-        // GLES30.glVertexAttribPointer(mTextureCoordinateHandle, mTextureDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, vertexBuffer);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glVertexAttribPointer(mTextureCoordinateHandle, mTextureDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, mPositionDataSize * mBytesPerFloat);
         GLES30.glEnableVertexAttribArray(mTextureCoordinateHandle);
 
-        // vertexBuffer.position(mPositionDataSize + mTextureDataSize);
-        // GLES30.glVertexAttribPointer(mNormalHandle, mNormalDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, vertexBuffer);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glVertexAttribPointer(mNormalHandle, mNormalDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, (mPositionDataSize + mTextureDataSize) * mBytesPerFloat);
         GLES30.glEnableVertexAttribArray(mNormalHandle);
