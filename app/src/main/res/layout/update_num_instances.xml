@@ -1,5 +1,6 @@
 <!-- res/layout/activity_view.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -9,13 +10,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Enter number of instances"
-        android:inputType="number" />
+        android:inputType="number"
+        tools:ignore="Autofill,HardcodedText,TextContrastCheck,VisualLintTextFieldSize" />
 
     <Button
         android:id="@+id/updateButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Update Instances" />
+        android:text="Update Instances"
+        tools:ignore="HardcodedText" />
 
     <FrameLayout
         android:id="@+id/glSurfaceContainer"

@@ -15,10 +15,10 @@ public class VertexLoader {
     private final List<float[]>normals = new ArrayList<>();
     private final List<float[]>textures = new ArrayList<>();
     private final List<int[][]>faces = new ArrayList<>();
-    private List<Float> vertexArray = new ArrayList<>();
+    private List<Float> vertexArray;
     private final float[] min;
     private final float[] max;
-    private AABB aabb;
+    public AABB aabb;
     private final int VERTEX_SIZE = 3;
     private final int TEXTURE_SIZE = 2;
     private final int NORMAL_SIZE = 3;
@@ -66,10 +66,6 @@ public class VertexLoader {
 
     public List<Float> getVertexArray() {
         return this.vertexArray;
-    }
-
-    public AABB getAABB(){
-        return this.aabb;
     }
 
     private void processVertex(String[] parts) {

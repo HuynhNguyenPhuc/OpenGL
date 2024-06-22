@@ -16,7 +16,7 @@ public class ViewActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_view);
+        setContentView(R.layout.update_num_instances);
 
         EditText instanceCountInput = findViewById(R.id.instanceCountInput);
         Button updateButton = findViewById(R.id.updateButton);

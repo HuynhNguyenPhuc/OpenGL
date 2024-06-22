@@ -45,6 +45,20 @@ class Point extends Geometric{
         );
     }
 
+    public float[] getCoordinates(){ return new float[]{x, y, z}; }
+
+    public Point getCenter(Point point){
+        return new Point(
+            (x + point.x) / 2,
+            (y + point.y) / 2,
+            (z + point.z) / 2
+        );
+    }
+
+    public float[] getMesh(){
+        return new float[]{x, y, z};
+    }
+
     @Override
     public String toString() {
         return "Point coordinates: (" + x + ", " + y + ", " + z + ")";
@@ -72,12 +86,22 @@ class Vector extends Geometric{
         return (float) Math.sqrt(x * x + y * y + z * z);
     }
 
+    public float[] getCoordinates(){ return new float[]{x, y, z}; }
+
     public Vector normalize(){
         float magnitude = this.magnitude();
         return new Vector(
             x / magnitude,
             y / magnitude,
             z / magnitude
+        ).normalize();
+    }
+
+    public Vector getNormal(){
+        return new Vector(
+                2.0f / (x + (float) 1e-6),
+                -1.0f / (y + (float) 1e-6),
+                -1.0f / (z + (float) 1e-6)
         );
     }
 
@@ -146,6 +170,10 @@ class Ray extends Geometric{
             origin.y + direction.y * t,
             origin.z + direction.z * t
         );
+    }
+
+    public float[] getMesh(){
+        return new float[]{origin.x, origin.y, origin.z, origin.x + direction.x * 1000, origin.y + direction.y * 1000, origin.z + direction.z * 1000};
     }
 
     @Override

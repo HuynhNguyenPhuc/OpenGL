@@ -14,7 +14,7 @@ public class ViewActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_view);
+        setContentView(R.layout.update_num_instances);
 
         FrameLayout glSurfaceContainer = findViewById(R.id.glSurfaceContainer);
 
