@@ -173,7 +173,7 @@ class Ray extends Geometric{
     }
 
     public float[] getMesh(){
-        return new float[]{origin.x, origin.y, origin.z, origin.x + direction.x * 1000, origin.y + direction.y * 1000, origin.z + direction.z * 1000};
+        return new float[]{origin.x, origin.y, origin.z, origin.x + direction.x * 1000.0f, origin.y + direction.y * 1000.0f, origin.z + direction.z * 1000.0f};
     }
 
     @Override

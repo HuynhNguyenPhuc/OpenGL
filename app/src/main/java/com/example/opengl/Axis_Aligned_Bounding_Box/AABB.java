@@ -25,12 +25,10 @@ public class AABB {
         );
     }
 
-    public float[] getCenterCoordinates() {
-        return new float[]{
-                (min.x + max.x) / 2,
-                (min.y + max.y) / 2,
-                (min.z + max.z) / 2,
-        };
+    float getSurfaceArea() {
+        return 2.0f * ((max.x - min.x) * (max.y - min.y) +
+                (max.x - min.x) * (max.z - min.z) +
+                (max.y - min.y) * (max.z - min.z));
     }
 
     public float[] getMesh() {
@@ -98,6 +96,63 @@ public class AABB {
         }
 
         return mesh;
+    }
+
+    AABB expand(AABB other){
+        return new AABB(
+            new Point(
+                Math.min(min.x, other.min.x),
+                Math.min(min.y, other.min.y),
+                Math.min(min.z, other.min.z)
+            ),
+            new Point(
+                Math.max(max.x, other.max.x),
+                Math.max(max.y, other.max.y),
+                Math.max(max.z, other.max.z)
+            )
+        );
+    }
+
+    boolean checkIntersectionWithRay(Ray r) {
+        float tMinByX, tMaxByX;
+        if (r.direction.x == 0) {
+            if (r.origin.x < min.x || r.origin.x > max.x) return false;
+            tMinByX = Float.NEGATIVE_INFINITY;
+            tMaxByX = Float.POSITIVE_INFINITY;
+        } else {
+            tMinByX = (min.x - r.origin.x) / r.direction.x;
+            tMaxByX = (max.x - r.origin.x) / r.direction.x;
+            if (r.direction.x < 0) { float temp = tMinByX; tMinByX = tMaxByX; tMaxByX = temp; }
+        }
+
+        float tMinByY, tMaxByY;
+        if (r.direction.y == 0) {
+            if (r.origin.y < min.y || r.origin.y > max.y) return false;
+            tMinByY = Float.NEGATIVE_INFINITY;
+            tMaxByY = Float.POSITIVE_INFINITY;
+        } else {
+            tMinByY = (min.y - r.origin.y) / r.direction.y;
+            tMaxByY = (max.y - r.origin.y) / r.direction.y;
+            if (r.direction.y < 0) { float temp = tMinByY; tMinByY = tMaxByY; tMaxByY = temp; }
+        }
+
+        float tMinByZ, tMaxByZ;
+        if (r.direction.z == 0) {
+            if (r.origin.z < min.z || r.origin.z > max.z) return false;
+            tMinByZ = Float.NEGATIVE_INFINITY;
+            tMaxByZ = Float.POSITIVE_INFINITY;
+        } else {
+            tMinByZ = (min.z - r.origin.z) / r.direction.z;
+            tMaxByZ = (max.z - r.origin.z) / r.direction.z;
+            if (r.direction.z < 0) { float temp = tMinByZ; tMinByZ = tMaxByZ; tMaxByZ = temp; }
+        }
+
+        float tMin = Math.max(Math.max(tMinByX, tMinByY), tMinByZ);
+        float tMax = Math.min(Math.min(tMaxByX, tMaxByY), tMaxByZ);
+
+        if (tMax < 0 || tMax < tMin) return false;
+
+        return true;
     }
 
     Point[] getIntersectionWithRay(Ray r) {
@@ -203,5 +258,13 @@ public class AABB {
         if (tMin < 0) tMin = 0;
         if (tMin == tMax) return new float[]{tMin};
         return new float[] {tMin, tMax};
+    }
+
+    @Override
+    public String toString() {
+        return "AABB{" +
+                "min = " + min.toString() +
+                ", max = " + max.toString() +
+                '}';
     }
 }
