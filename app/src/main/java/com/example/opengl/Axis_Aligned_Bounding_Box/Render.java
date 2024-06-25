@@ -11,7 +11,6 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class Render implements GLSurfaceView.Renderer {
-    private static final float EPSILON = 0.01f;
     private final GLSurfaceView glSurfaceView;
     private final Handler handler = new Handler();
 
