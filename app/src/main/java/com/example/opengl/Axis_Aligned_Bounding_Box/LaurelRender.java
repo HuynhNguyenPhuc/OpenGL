@@ -20,11 +20,13 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class LaurelRender implements GLSurfaceView.Renderer {
+
     private final VertexLoader loader;
     private final Context mActivityContext;
-    private final GLSurfaceView mGLSurfaceView;
+    private final Ray r;
 
-    private float[] mModelMatrix;
+    private final float[] mModelMatrices;
+    private final float[] mModelMatrix = new float[16];
     private final float[] mViewMatrix = new float[16];
     private final float[] mProjectionMatrix = new float[16];
     private float[] lightPosition;
@@ -32,12 +34,18 @@ public class LaurelRender implements GLSurfaceView.Renderer {
     private final FloatBuffer mVertexBuffer;
     private final Material mMaterial;
     private final FloatBuffer mBoundingBoxBuffer;
+    private final FloatBuffer mRayBuffer;
+    private final FloatBuffer mColorBuffer;
+    private final BVH aabbs = new BVH();
+    private final boolean[] intersects;
+    private final float[][] colors;
 
-    private final int numVBOHandles = 3;
+    private final int numVBOHandles = 5;
     private final int[] mVBOHandles = new int [numVBOHandles];
 
-    private int numInstances = 1;
+    private final int numInstances;
 
+    private int mModelMatricesHandle;
     private int mModelMatrixHandle;
     private int mViewMatrixHandle;
     private int mProjectionMatrixHandle;
@@ -49,6 +57,7 @@ public class LaurelRender implements GLSurfaceView.Renderer {
     private int mTextureUniformHandle;
     private int mPointSizeHandle;
     private int mColorHandle;
+    private int mColorsHandle;
     private int mKAHandle;
     private int mKDHandle;
     private int mKSHandle;
@@ -61,17 +70,16 @@ public class LaurelRender implements GLSurfaceView.Renderer {
     private final int mTextureDataSize = 2;
 
     private int laurelProgramHandle;
+    private int simpleProgramHandle;
     private int aabbProgramHandle;
 
-    public LaurelRender(Context context, GLSurfaceView glSurfaceView) {
+    public LaurelRender(Context context, Object... args) {
         this.mActivityContext = context;
-        this.mGLSurfaceView = glSurfaceView;
+        this.r = (Ray) args[0];
+        this.numInstances = (int) args[1];
 
         loader = new VertexLoader(context, "laurel.obj");
         List<Float> vertexArray = loader.getVertexArray();
-        float[] aabbMesh = loader.aabb.getLineMesh();
-        Log.d("aabb", loader.aabb.min.toString());
-        Log.d("aabb", loader.aabb.max.toString());
 
         numPoints = vertexArray.size() / (mPositionDataSize + mNormalDataSize + mTextureDataSize);
         mVertexBuffer = ByteBuffer.allocateDirect(vertexArray.size() * mBytesPerFloat)
@@ -84,20 +92,71 @@ public class LaurelRender implements GLSurfaceView.Renderer {
 
         mMaterial = new MaterialLoader().load(mActivityContext, "laurel.mtl");
 
+        AABB aabb = loader.aabb;
+        mModelMatrices = ModelGenerator.generate(numInstances);
+
+        for (int i = 0; i < numInstances; i++) {
+            float[] modelMatrix = new float[16];
+            System.arraycopy(mModelMatrices, i * 16, modelMatrix, 0, 16);
+
+            AABB transformedAABB = transformAABB(aabb, modelMatrix);
+            aabbs.insert(transformedAABB, i);
+        }
+
+        intersects = aabbs.checkIntersectionWithRay(r);
+        for (int i = 0; i < numInstances; i++) {
+            Log.d("intersects", String.valueOf(intersects[i]));
+        }
+
+        float[] aabbMesh = aabb.getLineMesh();
         mBoundingBoxBuffer = ByteBuffer.allocateDirect(aabbMesh.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
         mBoundingBoxBuffer.put(aabbMesh);
         mBoundingBoxBuffer.position(0);
 
+        mRayBuffer = Buffer.getRayBuffer(new Ray[]{r});
+
+        colors = Color.mapToColors(intersects);
+        for (int i = 0; i < colors.length; i++) {
+            Log.d("intersects", String.valueOf(colors[i][0]) + " " + colors[i][1] + " " + colors[i][2] + " " + colors[i][3]);
+        }
+
+        mColorBuffer = ByteBuffer.allocateDirect(colors.length * 4 * mBytesPerFloat)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        for (float[] color: colors) {
+            mColorBuffer.put(color);
+        }
+        mColorBuffer.position(0);
+
         vertexArray.clear();
         System.gc();
         System.runFinalization();
     }
 
-    public void setNumInstances(int numInstances) {
-        this.numInstances = numInstances;
-        mGLSurfaceView.requestRender();
+    private AABB transformAABB(AABB aabb, float[] modelMatrix) {
+        float[] min = aabb.min.getCoordinates();
+        float[] max = aabb.max.getCoordinates();
+
+        float[] transformedMin = new float[4];
+        float[] transformedMax = new float[4];
+
+        Matrix.multiplyMV(transformedMin, 0, modelMatrix, 0, new float[]{min[0], min[1], min[2], 1.0f}, 0);
+        Matrix.multiplyMV(transformedMax, 0, modelMatrix, 0, new float[]{max[0], max[1], max[2], 1.0f}, 0);
+
+        float[] newMin = {
+                Math.min(transformedMin[0], transformedMax[0]),
+                Math.min(transformedMin[1], transformedMax[1]),
+                Math.min(transformedMin[2], transformedMax[2])
+        };
+        float[] newMax = {
+                Math.max(transformedMin[0], transformedMax[0]),
+                Math.max(transformedMin[1], transformedMax[1]),
+                Math.max(transformedMin[2], transformedMax[2])
+        };
+
+        return new AABB(newMin, newMax);
     }
 
     public static int loadTexture(final Context context, final int resourceId)
@@ -163,7 +222,7 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         mPositionHandle = GLES30.glGetAttribLocation(laurelProgramHandle, "a_Position");
         mTextureCoordinateHandle = GLES30.glGetAttribLocation(laurelProgramHandle, "a_TexCoord");
         mNormalHandle = GLES30.glGetAttribLocation(laurelProgramHandle, "a_Normal");
-        mModelMatrixHandle = GLES30.glGetAttribLocation(laurelProgramHandle, "a_ModelMatrix");
+        mModelMatricesHandle = GLES30.glGetAttribLocation(laurelProgramHandle, "a_ModelMatrix");
 
         mViewMatrixHandle = GLES30.glGetUniformLocation(laurelProgramHandle, "u_ViewMatrix");
         mProjectionMatrixHandle = GLES30.glGetUniformLocation(laurelProgramHandle, "u_ProjectionMatrix");
@@ -175,7 +234,35 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         mNSHandle = GLES30.glGetUniformLocation(laurelProgramHandle, "nS");
     }
 
-    void setupBoundingBoxProgram(){
+    void setupBoundingBoxProgram() {
+        final String vertexShader = ShaderProgram.getMultipleInstancesVertexShader();
+        int vertexShaderHandle = GLES30.glCreateShader(GLES30.GL_VERTEX_SHADER);
+        GLES30.glShaderSource(vertexShaderHandle, vertexShader);
+        GLES30.glCompileShader(vertexShaderHandle);
+
+        final String fragmentShader = com.example.aabb.ShaderProgram.getMultipleInstancesFragmentShader();
+        int fragmentShaderHandle = GLES30.glCreateShader(GLES30.GL_FRAGMENT_SHADER);
+        GLES30.glShaderSource(fragmentShaderHandle, fragmentShader);
+        GLES30.glCompileShader(fragmentShaderHandle);
+
+        aabbProgramHandle = GLES30.glCreateProgram();
+        GLES30.glAttachShader(aabbProgramHandle, vertexShaderHandle);
+        GLES30.glAttachShader(aabbProgramHandle, fragmentShaderHandle);
+        GLES30.glBindAttribLocation(aabbProgramHandle, 0, "a_Position");
+        GLES30.glBindAttribLocation(aabbProgramHandle, 1, "a_ModelMatrix");
+        GLES30.glBindAttribLocation(aabbProgramHandle, 2, "a_Color");
+        GLES30.glLinkProgram(aabbProgramHandle);
+
+        mPositionHandle = GLES30.glGetAttribLocation(aabbProgramHandle, "a_Position");
+        mModelMatricesHandle = GLES30.glGetAttribLocation(aabbProgramHandle, "a_ModelMatrix");
+        mColorsHandle = GLES30.glGetAttribLocation(aabbProgramHandle, "a_Color");
+
+        mViewMatrixHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_ViewMatrix");
+        mProjectionMatrixHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_ProjectionMatrix");
+    }
+
+
+    void setupSimpleProgram(){
         final String vertexShader = ShaderProgram.getSimpleVertexShader();
         int vertexShaderHandle = GLES30.glCreateShader(GLES30.GL_VERTEX_SHADER);
         GLES30.glShaderSource(vertexShaderHandle, vertexShader);
@@ -186,20 +273,20 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         GLES30.glShaderSource(fragmentShaderHandle, fragmentShader);
         GLES30.glCompileShader(fragmentShaderHandle);
 
-        aabbProgramHandle = GLES30.glCreateProgram();
-        GLES30.glAttachShader(aabbProgramHandle, vertexShaderHandle);
-        GLES30.glAttachShader(aabbProgramHandle, fragmentShaderHandle);
-        GLES30.glBindAttribLocation(aabbProgramHandle, 0, "a_Position");
-        GLES30.glBindAttribLocation(aabbProgramHandle, 1, "a_ModelMatrix");
-        GLES30.glLinkProgram(aabbProgramHandle);
+        simpleProgramHandle = GLES30.glCreateProgram();
+        GLES30.glAttachShader(simpleProgramHandle, vertexShaderHandle);
+        GLES30.glAttachShader(simpleProgramHandle, fragmentShaderHandle);
+        GLES30.glBindAttribLocation(simpleProgramHandle, 0, "a_Position");
+        GLES30.glLinkProgram(simpleProgramHandle);
 
-        mPositionHandle = GLES30.glGetAttribLocation(aabbProgramHandle, "a_Position");
-        mModelMatrixHandle = GLES30.glGetAttribLocation(aabbProgramHandle, "a_ModelMatrix");
+        mPositionHandle = GLES30.glGetAttribLocation(simpleProgramHandle, "a_Position");
 
-        mPointSizeHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_PointSize");
-        mColorHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_Color");
-        mViewMatrixHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_ViewMatrix");
-        mProjectionMatrixHandle = GLES30.glGetUniformLocation(aabbProgramHandle, "u_ProjectionMatrix");
+        mPointSizeHandle = GLES30.glGetUniformLocation(simpleProgramHandle, "u_PointSize");
+        mColorHandle = GLES30.glGetUniformLocation(simpleProgramHandle, "u_Color");
+
+        mModelMatrixHandle = GLES30.glGetUniformLocation(simpleProgramHandle, "u_ModelMatrix");
+        mViewMatrixHandle = GLES30.glGetUniformLocation(simpleProgramHandle, "u_ViewMatrix");
+        mProjectionMatrixHandle = GLES30.glGetUniformLocation(simpleProgramHandle, "u_ProjectionMatrix");
     }
 
     @Override
@@ -208,16 +295,15 @@ public class LaurelRender implements GLSurfaceView.Renderer {
 
         // Enable depth testing
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
-        GLES30.glEnable(GLES30.GL_CULL_FACE);
 
         /* Set up the view matrix */
         final float eyeX = 0.0f;
         final float eyeY = 0.0f;
-        final float eyeZ = 9.0f;
+        final float eyeZ = 15.0f;
 
         final float lookX = 0.0f;
         final float lookY = 0.0f;
-        final float lookZ = -9.0f;
+        final float lookZ = -15.0f;
 
         final float upX = 0.0f;
         final float upY = 1.0f;
@@ -232,9 +318,6 @@ public class LaurelRender implements GLSurfaceView.Renderer {
 
         lightPosition = new float [] {lightX, lightY, lightZ};
 
-        // setupLaurelProgram();
-        // setupBoundingBoxProgram();
-
         GLES30.glGenBuffers(numVBOHandles, mVBOHandles, 0);
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
@@ -245,6 +328,12 @@ public class LaurelRender implements GLSurfaceView.Renderer {
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, numInstances * 16 * mBytesPerFloat, null, GLES30.GL_DYNAMIC_DRAW);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[3]);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mColorBuffer.capacity() * mBytesPerFloat, null, GLES30.GL_DYNAMIC_DRAW);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[4]);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, mRayBuffer.capacity() * mBytesPerFloat, mRayBuffer, GLES30.GL_DYNAMIC_DRAW);
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
     }
@@ -259,17 +348,12 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         final float bottom = -1.0f;
         final float top = 1.0f;
         final float near = 1.0f;
-        final float far = 15.0f;
+        final float far = 50.0f;
 
         Matrix.frustumM(mProjectionMatrix, 0, left, right, bottom, top, near, far);
     }
 
-    @Override
-    public void onDrawFrame(GL10 glUnused) {
-        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT | GLES30.GL_COLOR_BUFFER_BIT);
-
-        mModelMatrix = ModelGenerator.generate(numInstances);
-
+    void setupModelMatrixBuffer(){
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
 
         ByteBuffer mappedByteBuffer = (ByteBuffer) GLES30.glMapBufferRange(
@@ -279,17 +363,43 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         if (mappedByteBuffer != null) {
             mappedByteBuffer.order(ByteOrder.nativeOrder());
             FloatBuffer mappedFloatBuffer = mappedByteBuffer.asFloatBuffer();
-            mappedFloatBuffer.put(mModelMatrix);
+            mappedFloatBuffer.put(mModelMatrices);
             GLES30.glUnmapBuffer(GLES30.GL_ARRAY_BUFFER);
         }
         else {
             Log.e("Buffer", "Error mapping buffer range");
         }
+    }
 
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
+    void setupColorBuffer(){
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[3]);
 
-        drawAABB(10.0f, Color.BLUE, Color.RED);
+        ByteBuffer mappedByteBuffer = (ByteBuffer) GLES30.glMapBufferRange(
+                GLES30.GL_ARRAY_BUFFER, 0, mColorBuffer.capacity() * mBytesPerFloat,
+                GLES30.GL_MAP_WRITE_BIT | GLES30.GL_MAP_INVALIDATE_BUFFER_BIT);
+
+        if (mappedByteBuffer != null) {
+            mappedByteBuffer.order(ByteOrder.nativeOrder());
+            FloatBuffer mappedFloatBuffer = mappedByteBuffer.asFloatBuffer();
+            mColorBuffer.position(0);
+            mappedFloatBuffer.put(mColorBuffer);
+            GLES30.glUnmapBuffer(GLES30.GL_ARRAY_BUFFER);
+        } else {
+            Log.e("Buffer", "Error mapping buffer range");
+        }
+    }
+
+
+    @Override
+    public void onDrawFrame(GL10 glUnused) {
+        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT | GLES30.GL_COLOR_BUFFER_BIT);
+
+        setupModelMatrixBuffer();
+        setupColorBuffer();
+
         drawLaurel();
+        drawRay(10.0f, Color.RED, Color.WHITE);
+        drawAABB();
     }
 
     private void drawLaurel() {
@@ -310,7 +420,7 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         GLES30.glUniform3fv(mKDHandle, 1, mMaterial.getDiffuse(), 0);
         GLES30.glUniform3fv(mKSHandle, 1, mMaterial.getSpecular(), 0);
         GLES30.glUniform1f(mNSHandle, mMaterial.getShininess());
-        
+
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[0]);
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, (mPositionDataSize + mNormalDataSize + mTextureDataSize) * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
@@ -325,7 +435,7 @@ public class LaurelRender implements GLSurfaceView.Renderer {
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
         for (int i = 0; i < 4; i++) {
-            int attribLocation = mModelMatrixHandle + i;
+            int attribLocation = mModelMatricesHandle + i;
             int offset = i * 4 * mBytesPerFloat;
             GLES30.glVertexAttribPointer(attribLocation, 4, GLES30.GL_FLOAT, false, 16 * mBytesPerFloat, offset);
             GLES30.glEnableVertexAttribArray(attribLocation);
@@ -333,20 +443,14 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         }
 
         GLES30.glDrawArraysInstanced(GLES30.GL_TRIANGLES, 0, numPoints, numInstances);
-
-        GLES30.glDisableVertexAttribArray(mPositionHandle);
-        for (int i = 0; i < 4; i++) {
-            GLES30.glDisableVertexAttribArray(mModelMatrixHandle + i);
-        }
-        GLES30.glDisableVertexAttribArray(mTextureCoordinateHandle);
-        GLES30.glDisableVertexAttribArray(mModelMatrixHandle);
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
     }
 
-    private void drawAABB(float pointSize, float[] pointColor, float[] rayColor) {
-        setupBoundingBoxProgram();
+    private void drawAABB() {
+        setupSimpleProgram();
+        GLES30.glUseProgram(simpleProgramHandle);
 
-        GLES30.glUseProgram(aabbProgramHandle);
+        // setupBoundingBoxProgram();
+        // GLES30.glUseProgram(aabbProgramHandle);
 
         GLES30.glUniformMatrix4fv(mViewMatrixHandle, 1, false, mViewMatrix, 0);
         GLES30.glUniformMatrix4fv(mProjectionMatrixHandle, 1, false, mProjectionMatrix, 0);
@@ -354,28 +458,53 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[1]);
         GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
         GLES30.glEnableVertexAttribArray(mPositionHandle);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
 
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
-        for (int i = 0; i < 4; i++) {
-            int attribLocation = mModelMatrixHandle + i;
-            int offset = i * 4 * mBytesPerFloat;
-            GLES30.glVertexAttribPointer(attribLocation, 4, GLES30.GL_FLOAT, false, 16 * mBytesPerFloat, offset);
-            GLES30.glEnableVertexAttribArray(attribLocation);
-            GLES30.glVertexAttribDivisor(attribLocation, 1);
+        //    GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[2]);
+        //    for (int i = 0; i < 4; i++) {
+        //        int attribLocation = mModelMatricesHandle + i;
+        //        int offset = i * 4 * mBytesPerFloat;
+        //        GLES30.glVertexAttribPointer(attribLocation, 4, GLES30.GL_FLOAT, false, 16 * mBytesPerFloat, offset);
+        //        GLES30.glEnableVertexAttribArray(attribLocation);
+        //        GLES30.glVertexAttribDivisor(attribLocation, 1);
+        //    }
+        //
+        //    GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[3]);
+        //    GLES30.glVertexAttribPointer(mColorsHandle, 4, GLES30.GL_FLOAT, false, 4 * mBytesPerFloat, 0);
+        //    GLES30.glEnableVertexAttribArray(mColorsHandle);
+        //    GLES30.glVertexAttribDivisor(mColorsHandle, 1);
+        //
+        //    GLES30.glDrawArraysInstanced(GLES30.GL_LINES, 0, mBoundingBoxBuffer.capacity() / mPositionDataSize, numInstances);
+
+        for (int i = 0; i< numInstances; i++) {
+            float[] modelMatrix = new float[16];
+            System.arraycopy(mModelMatrices, i * 16, modelMatrix, 0, 16);
+            GLES30.glUniformMatrix4fv(mModelMatrixHandle, 1, false, modelMatrix, 0);
+            GLES30.glUniform4fv(mColorHandle, 1, colors[i], 0);
+            GLES30.glDrawArraysInstanced(GLES30.GL_LINES, 0, mBoundingBoxBuffer.capacity() / mPositionDataSize, 1);
         }
+    }
 
-        GLES30.glUniform1f(mPointSizeHandle, pointSize);
+    private void drawRay(float sourcePointSize, float[] sourcePointColor, float[] rayColor) {
+        setupSimpleProgram();
+
+        GLES30.glUseProgram(simpleProgramHandle);
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, mVBOHandles[4]);
+        GLES30.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES30.GL_FLOAT, false, mPositionDataSize * mBytesPerFloat, 0);
+        GLES30.glEnableVertexAttribArray(mPositionHandle);
+
+        Matrix.setIdentityM(mModelMatrix, 0);
+
+        GLES30.glUniformMatrix4fv(mModelMatrixHandle, 1, false, mModelMatrix, 0);
+        GLES30.glUniformMatrix4fv(mViewMatrixHandle, 1, false, mViewMatrix, 0);
+        GLES30.glUniformMatrix4fv(mProjectionMatrixHandle, 1, false, mProjectionMatrix, 0);
+
+        GLES30.glUniform1f(mPointSizeHandle, sourcePointSize);
+        GLES30.glUniform4fv(mColorHandle, 1, sourcePointColor, 0);
+        GLES30.glDrawArrays(GLES30.GL_POINTS, 0, 1);
+
         GLES30.glUniform4fv(mColorHandle, 1, rayColor, 0);
-        GLES30.glDrawArraysInstanced(GLES30.GL_LINES, 0, mBoundingBoxBuffer.capacity() / mBytesPerFloat, numInstances);
-
-        GLES30.glUniform1f(mPointSizeHandle, pointSize);
-        GLES30.glUniform4fv(mColorHandle, 1, pointColor, 0);
-        GLES30.glDrawArraysInstanced(GLES30.GL_POINTS, 0, 16, numInstances);
-
-        GLES30.glDisableVertexAttribArray(mPositionHandle);
-        for (int i = 0; i < 4; i++) {
-            GLES30.glDisableVertexAttribArray(mModelMatrixHandle + i);
-        }
-        GLES30.glDisableVertexAttribArray(mModelMatrixHandle);
+        GLES30.glDrawArrays(GLES30.GL_LINES, 0, mRayBuffer.capacity() / mPositionDataSize);
     }
 }

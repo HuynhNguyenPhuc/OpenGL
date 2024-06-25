@@ -17,7 +17,7 @@ public class MyGLSurfaceView extends GLSurfaceView {
             setRenderer(mRenderer);
         }
         else {
-            mLaurelRenderer = new LaurelRender(context, this);
+            mLaurelRenderer = new LaurelRender(context, args);
             setRenderer(mLaurelRenderer);
         }
         setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
