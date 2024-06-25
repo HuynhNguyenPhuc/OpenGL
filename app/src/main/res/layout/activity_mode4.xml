@@ -19,19 +19,120 @@
             android:textSize="24sp"
             android:textStyle="bold"
             android:gravity="center"
-            android:layout_centerHorizontal="true"
+            android:layout_gravity="center_horizontal"
             android:layout_marginTop="48dp"
             android:layout_marginBottom="16dp"
-            tools:ignore="HardcodedText,ObsoleteLayoutParam" />
+            tools:ignore="HardcodedText" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ray Origin"
+            android:textSize="18sp"
+            android:layout_marginTop="16dp"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="16dp">
+
+            <EditText
+                android:id="@+id/ray_origin_x"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="x"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,DuplicateSpeakableTextCheck,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+
+            <EditText
+                android:id="@+id/ray_origin_y"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="y"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,DuplicateSpeakableTextCheck,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+
+            <EditText
+                android:id="@+id/ray_origin_z"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="z"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,DuplicateSpeakableTextCheck,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ray Direction"
+            android:textSize="18sp"
+            android:layout_marginTop="16dp"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="16dp">
+
+            <EditText
+                android:id="@+id/ray_direction_x"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="x"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+
+            <EditText
+                android:id="@+id/ray_direction_y"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="y"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+
+            <EditText
+                android:id="@+id/ray_direction_z"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="z"
+                android:inputType="numberSigned|numberDecimal"
+                tools:ignore="Autofill,HardcodedText,TouchTargetSizeCheck,VisualLintTextFieldSize" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Num Instances"
+            android:textSize="18sp"
+            android:layout_marginTop="16dp"
+            tools:ignore="HardcodedText" />
+
+        <EditText
+            android:id="@+id/num_instances"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint=""
+            android:inputType="number"
+            tools:ignore="Autofill,DuplicateSpeakableTextCheck,HardcodedText,LabelFor,SpeakableTextPresentCheck,TouchTargetSizeCheck,VisualLintTextFieldSize" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_centerInParent="true"
-            tools:ignore="ObsoleteLayoutParam">
-            <!-- Submit button -->
+            android:layout_marginTop="16dp">
+
             <Button
                 android:id="@+id/submit_button"
                 android:layout_width="wrap_content"
@@ -39,7 +140,6 @@
                 android:text="Continue"
                 tools:ignore="ButtonStyle,HardcodedText" />
 
-            <!-- Return button -->
             <Button
                 android:id="@+id/return_button"
                 android:layout_width="wrap_content"
