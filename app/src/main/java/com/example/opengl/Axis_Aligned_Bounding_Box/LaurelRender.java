@@ -240,7 +240,7 @@ public class LaurelRender implements GLSurfaceView.Renderer {
         GLES30.glShaderSource(vertexShaderHandle, vertexShader);
         GLES30.glCompileShader(vertexShaderHandle);
 
-        final String fragmentShader = com.example.aabb.ShaderProgram.getMultipleInstancesFragmentShader();
+        final String fragmentShader = ShaderProgram.getMultipleInstancesFragmentShader();
         int fragmentShaderHandle = GLES30.glCreateShader(GLES30.GL_FRAGMENT_SHADER);
         GLES30.glShaderSource(fragmentShaderHandle, fragmentShader);
         GLES30.glCompileShader(fragmentShaderHandle);
