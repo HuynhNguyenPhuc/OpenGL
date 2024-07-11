@@ -7,12 +7,12 @@ public class AABB {
     public final Point min;
     public final Point max;
 
-    AABB(Point min, Point max){
+    public AABB(Point min, Point max){
         this.min = min;
         this.max = max;
     }
 
-    AABB(float[] min, float[] max){
+    public AABB(float[] min, float[] max){
         this.min = new Point(min);
         this.max = new Point(max);
     }
@@ -25,7 +25,7 @@ public class AABB {
         );
     }
 
-    float getSurfaceArea() {
+    public float getSurfaceArea() {
         return 2.0f * ((max.x - min.x) * (max.y - min.y) +
                 (max.x - min.x) * (max.z - min.z) +
                 (max.y - min.y) * (max.z - min.z));
@@ -98,7 +98,7 @@ public class AABB {
         return mesh;
     }
 
-    AABB expand(AABB other){
+    public AABB expand(AABB other){
         return new AABB(
             new Point(
                 Math.min(min.x, other.min.x),
@@ -113,7 +113,39 @@ public class AABB {
         );
     }
 
-    boolean checkIntersectionWithRay(Ray r) {
+    public static AABB expand(AABB[] aabbs, int start, int end) {
+        if (start >= end) return null;
+        if (end - start == 1) return aabbs[start];
+
+        float min_x = Float.POSITIVE_INFINITY;
+        float min_y = Float.POSITIVE_INFINITY;
+        float min_z = Float.POSITIVE_INFINITY;
+        float max_x = Float.NEGATIVE_INFINITY;
+        float max_y = Float.NEGATIVE_INFINITY;
+        float max_z = Float.NEGATIVE_INFINITY;
+
+        for (int i = start; i < end; i++) {
+            if (aabbs[i].min.x < min_x) min_x = aabbs[i].min.x;
+            if (aabbs[i].min.y < min_y) min_y = aabbs[i].min.y;
+            if (aabbs[i].min.z < min_z) min_z = aabbs[i].min.z;
+            if (aabbs[i].max.x > max_x) max_x = aabbs[i].max.x;
+            if (aabbs[i].max.y > max_y) max_y = aabbs[i].max.y;
+            if (aabbs[i].max.z > max_z) max_z = aabbs[i].max.z;
+        }
+
+        return new AABB(new Point(min_x, min_y, min_z), new Point(max_x, max_y, max_z));
+    }
+
+    public int getLongestAxis(){
+        float dx = max.x - min.x;
+        float dy = max.y - min.y;
+        float dz = max.z - min.z;
+        if (dx > dy && dx > dz) return 0;
+        if (dy > dz) return 1;
+        return 2;
+    }
+
+    public boolean checkIntersectWithRay(Ray r) {
         float tMinByX, tMaxByX;
         if (r.direction.x == 0) {
             if (r.origin.x < min.x || r.origin.x > max.x) return false;
@@ -155,7 +187,7 @@ public class AABB {
         return true;
     }
 
-    Point[] getIntersectionWithRay(Ray r) {
+    public Point[] getIntersectionWithRay(Ray r) {
         float tMinByX, tMaxByX;
         if (r.direction.x == 0) {
             if (r.origin.x < min.x || r.origin.x > max.x) return null;
@@ -207,7 +239,7 @@ public class AABB {
         return points;
     }
 
-    boolean checkCollision(AABB other){
+    public boolean checkCollision(AABB other){
         boolean x = min.x > other.max.x || other.min.x > max.x;
         if (x) return false;
         boolean y = min.y > other.max.y || other.min.y > max.y;
@@ -216,7 +248,7 @@ public class AABB {
         return !z;
     }
 
-    float[] checkSweptCollision(AABB other, Vector direction, float t){
+    public float[] checkSweptCollision(AABB other, Vector direction, float t){
         float tMinByX, tMaxByX;
         if (direction.x == 0) {
             if (max.x < other.min.x || other.max.x < min.x) return null;
