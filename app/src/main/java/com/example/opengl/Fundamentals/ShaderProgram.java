@@ -69,7 +69,7 @@ public class ShaderProgram {
                         "varying vec3 v_Normal;\n" +
                         "varying vec2 v_TexCoord;\n" +
                         "void main() {\n" +
-                        "   mat4 u_MVMatrix = a_ModelMatrix * u_ViewMatrix;\n" +
+                        "   mat4 u_MVMatrix = u_ViewMatrix * a_ModelMatrix;\n" +
                         "   mat4 u_MVNormalMatrix = transpose(inverse(u_MVMatrix));\n" +
                         "   vec4 w_Position = u_MVMatrix * a_Position;\n" +
                         "   v_Position = w_Position.xyz;\n" +
